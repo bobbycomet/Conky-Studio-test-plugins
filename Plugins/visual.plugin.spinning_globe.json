@@ -1,0 +1,115 @@
+{
+  "id": "visual.plugin.spinning_globe",
+  "category": "visual",
+  "label": "Spinning Globe",
+  "author": "community",
+  "version": "1.0.0",
+  "description": "Animated Earth globe with latitude/longitude grid and simplified continents. Choose holographic wireframe or classroom solid style, set axial tilt, and spin speed (deg/sec). Fully procedural — no image assets required.",
+  "color": "#8a5fd6",
+  "subcategory": "Effects",
+  "simple_mode": true,
+  "tags": ["globe", "earth", "spin", "holographic", "map", "animation"],
+  "license": "MIT",
+  "properties": [
+    {
+      "key": "cx",
+      "label": "Center X",
+      "kind": "float",
+      "default": 140,
+      "minimum": -4000,
+      "maximum": 4000,
+      "group": "Position"
+    },
+    {
+      "key": "cy",
+      "label": "Center Y",
+      "kind": "float",
+      "default": 140,
+      "minimum": -4000,
+      "maximum": 4000,
+      "group": "Position"
+    },
+    {
+      "key": "radius",
+      "label": "Radius",
+      "kind": "float",
+      "default": 90,
+      "minimum": 20,
+      "maximum": 800,
+      "step": 1,
+      "group": "Shape"
+    },
+    {
+      "key": "style",
+      "label": "Style",
+      "kind": "enum",
+      "default": "holographic",
+      "choices": ["holographic", "classroom"],
+      "choice_labels": ["Holographic (wireframe)", "Classroom (solid globe)"],
+      "group": "Style",
+      "help": "Holographic: cyan wire grid + glow. Classroom: filled oceans/land with soft shading."
+    },
+    {
+      "key": "tilt_deg",
+      "label": "Axial tilt (°)",
+      "kind": "float",
+      "default": 23.5,
+      "minimum": -45,
+      "maximum": 45,
+      "step": 0.5,
+      "group": "Drive",
+      "help": "Earth-like tilt is ~23.5°. 0 = upright poles."
+    },
+    {
+      "key": "spin_speed",
+      "label": "Spin speed (deg/sec)",
+      "kind": "float",
+      "default": 18,
+      "minimum": -180,
+      "maximum": 180,
+      "step": 1,
+      "group": "Drive",
+      "help": "Positive = west-to-east (realistic). Negative reverses."
+    },
+    {
+      "key": "show_grid",
+      "label": "Show lat/lon grid",
+      "kind": "bool",
+      "default": true,
+      "group": "Style"
+    },
+    {
+      "key": "show_continents",
+      "label": "Show continents",
+      "kind": "bool",
+      "default": true,
+      "group": "Style"
+    },
+    {
+      "key": "color",
+      "label": "Accent / land colour",
+      "kind": "color",
+      "default": "#26fdf1",
+      "group": "Style"
+    },
+    {
+      "key": "ocean_color",
+      "label": "Ocean colour",
+      "kind": "color",
+      "default": "#0a3a4a",
+      "group": "Style"
+    },
+    {
+      "key": "opacity",
+      "label": "Opacity",
+      "kind": "float",
+      "default": 1.0,
+      "minimum": 0,
+      "maximum": 1,
+      "step": 0.05,
+      "group": "Style"
+    }
+  ],
+  "lua_helpers": "local function _globe_rot_y(x, y, z, a)\n  local c, s = math.cos(a), math.sin(a)\n  return x * c + z * s, y, -x * s + z * c\nend\nlocal function _globe_rot_x(x, y, z, a)\n  local c, s = math.cos(a), math.sin(a)\n  return x, y * c - z * s, y * s + z * c\nend\n-- Coarse continent blobs as (lon_deg, lat_deg, size_scale) samples for orthographic dots/patches\nlocal _GLOBE_LAND = {\n  {-100, 40, 1.4}, {-80, 25, 0.9}, {-70, -20, 1.2}, {-55, -10, 0.8},\n  {-45, -25, 0.7}, {10, 50, 1.1}, {15, 10, 1.3}, {25, -5, 0.9},\n  {35, 30, 0.7}, {70, 50, 1.5}, {100, 40, 1.2}, {120, 30, 0.8},\n  {135, -25, 1.0}, {25, -30, 0.9}, {-15, 20, 0.6}, {40, -5, 0.5},\n  {-60, 50, 0.6}, {90, 15, 0.7}, {150, -40, 0.5}, {-120, 50, 0.8},\n  {-90, 60, 0.5}, {5, 60, 0.4}, {110, 0, 0.6}, {-40, -5, 0.5}\n}\n",
+  "lua_draw_body": "local cx, cy, R = {cx}, {cy}, {radius}\nlocal opacity = {opacity}\nlocal style = '{style}'\nlocal tilt = math.rad({tilt_deg})\nlocal spin = math.rad({spin_speed}) * wall_clock()\nlocal ar, ag, ab = {color}\nlocal or_, og, ob = {ocean_color}\nlocal show_grid = {show_grid}\nlocal show_land = {show_continents}\n\n-- Sphere fill (classroom) or soft disc (holographic)\nif style == 'classroom' then\n  cairo_set_source_rgba(cr, or_, og, ob, opacity * 0.95)\n  cairo_arc(cr, cx, cy, R, 0, 2 * math.pi)\n  cairo_fill(cr)\n  -- soft limb darkening\n  local _g = cairo_pattern_create_radial(cx - R * 0.25, cy - R * 0.25, R * 0.1, cx, cy, R)\n  cairo_pattern_add_color_stop_rgba(_g, 0, or_ * 1.15, og * 1.15, ob * 1.1, opacity * 0.35)\n  cairo_pattern_add_color_stop_rgba(_g, 1, 0, 0, 0, opacity * 0.55)\n  cairo_set_source(cr, _g)\n  cairo_arc(cr, cx, cy, R, 0, 2 * math.pi)\n  cairo_fill(cr)\n  cairo_pattern_destroy(_g)\nelse\n  -- holographic outer glow\n  for i = 3, 1, -1 do\n    cairo_set_source_rgba(cr, ar, ag, ab, opacity * (0.06 / i))\n    cairo_set_line_width(cr, i * 2.2)\n    cairo_arc(cr, cx, cy, R + i * 1.5, 0, 2 * math.pi)\n    cairo_stroke(cr)\n  end\n  cairo_set_source_rgba(cr, ar * 0.15, ag * 0.25, ab * 0.35, opacity * 0.25)\n  cairo_arc(cr, cx, cy, R, 0, 2 * math.pi)\n  cairo_fill(cr)\nend\n\n-- Project lon/lat (degrees) → screen after spin + tilt; returns sx,sy,visible\nlocal function project(lon_d, lat_d)\n  local lon = math.rad(lon_d) + spin\n  local lat = math.rad(lat_d)\n  local x = math.cos(lat) * math.sin(lon)\n  local y = math.sin(lat)\n  local z = math.cos(lat) * math.cos(lon)\n  x, y, z = _globe_rot_x(x, y, z, tilt)\n  if z < -0.02 then return nil end\n  local sx = cx + x * R\n  local sy = cy - y * R\n  return sx, sy, z\nend\n\nif show_land then\n  for _, p in ipairs(_GLOBE_LAND) do\n    local sx, sy, z = project(p[1], p[2])\n    if sx then\n      local pr = R * 0.055 * p[3] * (0.55 + 0.45 * z)\n      if style == 'classroom' then\n        cairo_set_source_rgba(cr, ar, ag, ab, opacity * (0.55 + 0.4 * z))\n      else\n        cairo_set_source_rgba(cr, ar, ag, ab, opacity * (0.35 + 0.5 * z))\n      end\n      cairo_arc(cr, sx, sy, pr, 0, 2 * math.pi)\n      cairo_fill(cr)\n    end\n  end\nend\n\nif show_grid then\n  cairo_set_line_width(cr, style == 'holographic' and 1.1 or 0.8)\n  -- meridians\n  for m = 0, 11 do\n    local lon0 = m * 30\n    cairo_new_path(cr)\n    local started = false\n    for lat = -85, 85, 4 do\n      local sx, sy, z = project(lon0, lat)\n      if sx then\n        if not started then cairo_move_to(cr, sx, sy); started = true\n        else cairo_line_to(cr, sx, sy) end\n      else\n        started = false\n      end\n    end\n    if style == 'holographic' then\n      cairo_set_source_rgba(cr, ar, ag, ab, opacity * 0.45)\n    else\n      cairo_set_source_rgba(cr, 1, 1, 1, opacity * 0.22)\n    end\n    cairo_stroke(cr)\n  end\n  -- parallels\n  for lat = -60, 60, 30 do\n    cairo_new_path(cr)\n    local started = false\n    for lon = 0, 360, 4 do\n      local sx, sy, z = project(lon, lat)\n      if sx then\n        if not started then cairo_move_to(cr, sx, sy); started = true\n        else cairo_line_to(cr, sx, sy) end\n      else\n        started = false\n      end\n    end\n    if style == 'holographic' then\n      cairo_set_source_rgba(cr, ar, ag, ab, opacity * 0.4)\n    else\n      cairo_set_source_rgba(cr, 1, 1, 1, opacity * 0.18)\n    end\n    cairo_stroke(cr)\n  end\nend\n\n-- limb / outline\ncairo_set_line_width(cr, style == 'holographic' and 1.6 or 1.2)\nif style == 'holographic' then\n  cairo_set_source_rgba(cr, ar, ag, ab, opacity * 0.85)\nelse\n  cairo_set_source_rgba(cr, ar * 0.5, ag * 0.5, ab * 0.5, opacity * 0.5)\nend\ncairo_arc(cr, cx, cy, R, 0, 2 * math.pi)\ncairo_stroke(cr)\n\n-- holographic scanline shimmer\nif style == 'holographic' then\n  local t = wall_clock()\n  local band = (math.sin(t * 2.2) * 0.5 + 0.5) * R * 1.6 - R * 0.3\n  cairo_save(cr)\n  cairo_arc(cr, cx, cy, R - 1, 0, 2 * math.pi)\n  cairo_clip(cr)\n  cairo_set_source_rgba(cr, ar, ag, ab, opacity * 0.12)\n  cairo_rectangle(cr, cx - R, cy - R + band, R * 2, 6)\n  cairo_fill(cr)\n  cairo_restore(cr)\nend\n"
+}

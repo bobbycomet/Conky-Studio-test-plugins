@@ -1,0 +1,15 @@
+{
+  "api_version": "1.1",
+  "updated_at": "2026-08-11",
+  "plugins": [
+    {
+      "$ref": "plugins/visual.plugin.spinning_globe.json"
+    },
+    {
+      "$ref": "plugins/visual.plugin.dna_strand.json"
+    },
+    {
+      "$ref": "plugins/visual.plugin.neon_geometry.json"
+    }
+  ]
+}

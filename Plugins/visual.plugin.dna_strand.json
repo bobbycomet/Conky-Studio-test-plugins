@@ -1,0 +1,131 @@
+{
+  "id": "visual.plugin.dna_strand",
+  "category": "visual",
+  "label": "Holographic DNA",
+  "author": "community",
+  "version": "1.0.0",
+  "description": "Vertical double-helix DNA strand with holographic glow, rotating rungs, and soft neon trails. Fully procedural Cairo drawing.",
+  "color": "#8a5fd6",
+  "subcategory": "Effects",
+  "simple_mode": true,
+  "tags": ["dna", "helix", "holographic", "biology", "animation", "neon"],
+  "license": "MIT",
+  "properties": [
+    {
+      "key": "cx",
+      "label": "Center X",
+      "kind": "float",
+      "default": 80,
+      "minimum": -4000,
+      "maximum": 4000,
+      "group": "Position"
+    },
+    {
+      "key": "y",
+      "label": "Top Y",
+      "kind": "float",
+      "default": 20,
+      "minimum": -4000,
+      "maximum": 4000,
+      "group": "Position"
+    },
+    {
+      "key": "height",
+      "label": "Height",
+      "kind": "float",
+      "default": 280,
+      "minimum": 40,
+      "maximum": 2000,
+      "step": 1,
+      "group": "Shape"
+    },
+    {
+      "key": "amplitude",
+      "label": "Helix width",
+      "kind": "float",
+      "default": 36,
+      "minimum": 8,
+      "maximum": 200,
+      "step": 1,
+      "group": "Shape"
+    },
+    {
+      "key": "turns",
+      "label": "Turns",
+      "kind": "float",
+      "default": 3.5,
+      "minimum": 0.5,
+      "maximum": 12,
+      "step": 0.1,
+      "group": "Shape"
+    },
+    {
+      "key": "rung_count",
+      "label": "Base pairs",
+      "kind": "int",
+      "default": 18,
+      "minimum": 4,
+      "maximum": 48,
+      "group": "Shape"
+    },
+    {
+      "key": "spin_speed",
+      "label": "Spin speed (rad/sec)",
+      "kind": "float",
+      "default": 0.9,
+      "minimum": -6,
+      "maximum": 6,
+      "step": 0.05,
+      "group": "Drive"
+    },
+    {
+      "key": "color_a",
+      "label": "Strand A colour",
+      "kind": "color",
+      "default": "#26fdf1",
+      "group": "Style"
+    },
+    {
+      "key": "color_b",
+      "label": "Strand B colour",
+      "kind": "color",
+      "default": "#7aa6ff",
+      "group": "Style"
+    },
+    {
+      "key": "rung_color",
+      "label": "Rung colour",
+      "kind": "color",
+      "default": "#e8eaed",
+      "group": "Style"
+    },
+    {
+      "key": "glow",
+      "label": "Holographic glow",
+      "kind": "bool",
+      "default": true,
+      "group": "Style"
+    },
+    {
+      "key": "line_width",
+      "label": "Strand thickness",
+      "kind": "float",
+      "default": 2.4,
+      "minimum": 0.5,
+      "maximum": 12,
+      "step": 0.1,
+      "group": "Style"
+    },
+    {
+      "key": "opacity",
+      "label": "Opacity",
+      "kind": "float",
+      "default": 0.95,
+      "minimum": 0,
+      "maximum": 1,
+      "step": 0.05,
+      "group": "Style"
+    }
+  ],
+  "lua_draw_body": "local cx = {cx}\nlocal y0 = {y}\nlocal H = {height}\nlocal amp = {amplitude}\nlocal turns = {turns}\nlocal n_rung = math.max(2, math.floor({rung_count}))\nlocal spin = {spin_speed} * wall_clock()\nlocal ar, ag, ab = {color_a}\nlocal br, bg, bb = {color_b}\nlocal rr, rg, rb = {rung_color}\nlocal glow = {glow}\nlocal lw = {line_width}\nlocal opacity = {opacity}\nlocal steps = math.max(40, math.floor(H / 3))\n\nlocal function helix_xy(t, phase)\n  local ang = t * turns * 2 * math.pi + spin + phase\n  local x = cx + math.cos(ang) * amp\n  local y = y0 + t * H\n  local z = math.sin(ang)\n  return x, y, z\nend\n\n-- soft vertical aura\nif glow then\n  for g = 3, 1, -1 do\n    cairo_set_source_rgba(cr, ar, ag, ab, opacity * (0.04 / g))\n    cairo_set_line_width(cr, amp * 0.35 * g)\n    cairo_move_to(cr, cx, y0)\n    cairo_line_to(cr, cx, y0 + H)\n    cairo_stroke(cr)\n  end\nend\n\n-- rungs (base pairs) — draw first so strands sit on top\nfor i = 0, n_rung - 1 do\n  local t = (i + 0.5) / n_rung\n  local x1, y1, z1 = helix_xy(t, 0)\n  local x2, y2, z2 = helix_xy(t, math.pi)\n  local depth = (z1 + z2) * 0.5\n  local a = opacity * (0.35 + 0.55 * (0.5 + 0.5 * depth))\n  if glow then\n    cairo_set_source_rgba(cr, rr, rg, rb, a * 0.35)\n    cairo_set_line_width(cr, lw * 2.2)\n    cairo_move_to(cr, x1, y1)\n    cairo_line_to(cr, x2, y2)\n    cairo_stroke(cr)\n  end\n  cairo_set_source_rgba(cr, rr, rg, rb, a)\n  cairo_set_line_width(cr, lw * 0.85)\n  cairo_move_to(cr, x1, y1)\n  cairo_line_to(cr, x2, y2)\n  cairo_stroke(cr)\n  -- nucleotide dots\n  cairo_set_source_rgba(cr, ar, ag, ab, a)\n  cairo_arc(cr, x1, y1, lw * 1.1, 0, 2 * math.pi)\n  cairo_fill(cr)\n  cairo_set_source_rgba(cr, br, bg, bb, a)\n  cairo_arc(cr, x2, y2, lw * 1.1, 0, 2 * math.pi)\n  cairo_fill(cr)\nend\n\n-- strand polylines (back-to-front by sampling depth)\nlocal function draw_strand(phase, cr_, cg_, cb_)\n  -- collect points\n  local pts = {}\n  for i = 0, steps do\n    local t = i / steps\n    local x, y, z = helix_xy(t, phase)\n    pts[#pts + 1] = {x, y, z}\n  end\n  -- glow pass\n  if glow then\n    cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND)\n    cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND)\n    for g = 2, 1, -1 do\n      cairo_set_source_rgba(cr, cr_, cg_, cb_, opacity * (0.12 / g))\n      cairo_set_line_width(cr, lw * (2.8 + g))\n      cairo_new_path(cr)\n      for i, p in ipairs(pts) do\n        if i == 1 then cairo_move_to(cr, p[1], p[2]) else cairo_line_to(cr, p[1], p[2]) end\n      end\n      cairo_stroke(cr)\n    end\n  end\n  -- main strand with depth-modulated alpha segments\n  cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND)\n  cairo_set_line_width(cr, lw)\n  for i = 1, #pts - 1 do\n    local a = opacity * (0.45 + 0.55 * (0.5 + 0.5 * pts[i][3]))\n    cairo_set_source_rgba(cr, cr_, cg_, cb_, a)\n    cairo_move_to(cr, pts[i][1], pts[i][2])\n    cairo_line_to(cr, pts[i + 1][1], pts[i + 1][2])\n    cairo_stroke(cr)\n  end\nend\n\ndraw_strand(0, ar, ag, ab)\ndraw_strand(math.pi, br, bg, bb)\n"
+}
